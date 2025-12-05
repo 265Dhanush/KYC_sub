@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liveness Verification</title>
+    <style>
+        body {
+            background-color: #1a1a1a; /* Dark background */
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #00ffcc; /* Sci-fi cyan */
+        }
+
+        .video-container {
+            border: 3px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            font-size: 1.2rem;
+            color: #888;
+        }
+        
+        /* Success animation class */
+        .success-border {
+            border-color: #00ff00 !important;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.6) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Identity Verification</h2>
+
+    <div class="video-container" id="videoBox">
+        <img src="{{ url_for('live_verification.video_feed', ref_path=ref_path) }}" 
+             alt="Video Feed" width="640" height="480">
+    </div>
+
+    <p class="status-message" id="statusText">Please blink to verify...</p>
+
+    <script>
+        // --- CONFIGURATION ---
+        // The interval in milliseconds (1000ms = 1 second)
+        const POLL_INTERVAL = 1000; 
+        
+        // --- POLLING FUNCTION ---
+        function checkVerificationStatus() {
+            // fetch() sends a request to our new API endpoint
+            fetch("{{ url_for('live_verification.check_status') }}")
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Server Status:", data.status);
+
+                    if (data.status === "VERIFIED") {
+                        handleSuccess();
+                    }
+                })
+                .catch(error => {
+                    console.error("Polling error:", error);
+                });
+        }
+
+        // --- SUCCESS HANDLER ---
+        function handleSuccess() {
+            // 1. Stop polling (so we don't keep asking)
+            clearInterval(pollingId);
+
+            // 2. Update UI to show success
+            const videoBox = document.getElementById('videoBox');
+            const statusText = document.getElementById('statusText');
+            
+            videoBox.classList.add('success-border');
+            statusText.innerText = "Verification Successful! Redirecting...";
+            statusText.style.color = "#00ff00";
+
+            // 3. COMMUNICATE BACK TO MAIN APP
+            // Option A: If this is a popup window, tell the opener to refresh/redirect, then close self.
+            if (window.opener) {
+                // This sends the message "VERIFIED" to the parent window
+                window.opener.postMessage("VERIFIED", "*"); 
+                
+                // Optional: Close popup automatically after 2 seconds
+                setTimeout(() => window.close(), 3000);
+            } 
+            
+            // Option B: If this is a full page redirect, just go there directly.
+            // setTimeout(() => {
+            //     window.location.href = "http://localhost:5000/dashboard";
+            // }, 2000);
+            
+            alert("Verified! (Logic to close window or redirect goes here)");
+        }
+
+        // --- START POLLING ---
+        // Run checkVerificationStatus every POLL_INTERVAL
+        const pollingId = setInterval(checkVerificationStatus, POLL_INTERVAL);
+
+    </script>
+</body>
+</html>
